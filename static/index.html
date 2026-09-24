@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Parser MVP</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Document Parser</h1>
+    <p class="muted">Upload PDF, DOCX or TXT and inspect the normalized structure.</p>
+
+    <section class="card">
+      <input id="file" type="file" accept=".pdf,.docx,.txt,.text">
+      <button id="upload">Upload & Parse</button>
+      <span id="status"></span>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Documents</h2>
+        <div id="documents"></div>
+      </div>
+
+      <div class="card">
+        <div class="result-header">
+          <h2>Normalized document</h2>
+          <a id="original" target="_blank" hidden>Open original</a>
+        </div>
+        <pre id="json">Upload a document to see its normalized JSON.</pre>
+      </div>
+    </section>
+  </main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+async function loadDocuments() {
+  const res = await fetch("/api/documents");
+  const data = await res.json();
+  $("documents").innerHTML = "";
+
+  for (const doc of data.items) {
+    const row = document.createElement("button");
+    row.className = "doc-row";
+    row.textContent = doc.filename;
+    row.onclick = () => loadDocument(doc.id);
+    $("documents").appendChild(row);
+  }
+}
+
+async function loadDocument(id) {
+  const res = await fetch(`/api/documents/${id}`);
+  const data = await res.json();
+  $("json").textContent = JSON.stringify(data.normalized, null, 2);
+  $("original").href = data.original_url;
+  $("original").hidden = false;
+}
+
+$("upload").onclick = async () => {
+  const file = $("file").files[0];
+  if (!file) {
+    $("status").textContent = "Choose a file first.";
+    return;
+  }
+
+  $("status").textContent = "Parsing...";
+
+  const form = new FormData();
+  form.append("file", file);
+
+  try {
+    const res = await fetch("/api/documents", {
+      method: "POST",
+      body: form
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+
+    $("status").textContent = "Done.";
+    $("json").textContent = JSON.stringify(data.normalized, null, 2);
+    $("original").href = data.original_url;
+    $("original").hidden = false;
+    await loadDocuments();
+  } catch (err) {
+    $("status").textContent = err.message;
+  }
+};
+
+loadDocuments();
+</script>
+</body>
+</html>
