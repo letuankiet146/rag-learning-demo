@@ -55,8 +55,10 @@ desktop.ini
 # Uploaded documents
 uploads/*
 
+
 # Keep uploads directory
 !uploads/.gitkeep
+/example
 
 # =========================================================
 # Logs

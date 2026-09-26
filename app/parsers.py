@@ -36,6 +36,7 @@ def parse_document(path: Path) -> dict[str, Any]:
 
 # ---------------- DOCX ----------------
 
+
 def parse_docx(path: Path) -> dict[str, Any]:
     doc = DocxDocument(path)
     root = node("document", 1, path.name)
@@ -114,6 +115,7 @@ def iter_docx_blocks(doc):
 
 # ---------------- TXT ----------------
 
+
 def parse_txt(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8-sig", errors="replace")
     root = node("document", 1, path.name)
@@ -128,7 +130,7 @@ def parse_txt(path: Path) -> dict[str, Any]:
     first = non_empty[0]
     if len(first) <= 120 and not first.endswith((".", "?", "!", ":")):
         root["child"].append(node("title", 2, first))
-        lines = lines[lines.index(next(x for x in lines if x.strip())) + 1:]
+        lines = lines[lines.index(next(x for x in lines if x.strip())) + 1 :]
 
     current_heading = None
     paragraph_buffer = []
@@ -137,8 +139,7 @@ def parse_txt(path: Path) -> dict[str, Any]:
         nonlocal paragraph_buffer
         text_value = clean_text(" ".join(paragraph_buffer))
         if text_value:
-            attach_node(root, current_heading, node(
-                "paragraph", 4, text_value))
+            attach_node(root, current_heading, node("paragraph", 4, text_value))
         paragraph_buffer = []
 
     for line in lines:
@@ -174,11 +175,7 @@ def is_txt_heading(text: str) -> bool:
 def parse_pdf(path: Path) -> dict[str, Any]:
     pdf = fitz.open(path)
 
-    root = node(
-        "document",
-        1,
-        path.name
-    )
+    root = node("document", 1, path.name)
 
     # =========================================================
     # STEP 1
@@ -215,12 +212,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
             # Ghép text trong block
             # -------------------------------------------------
 
-            text = clean_text(
-                " ".join(
-                    span["text"]
-                    for span in spans
-                )
-            )
+            text = clean_text(" ".join(span["text"] for span in spans))
 
             if not text:
                 continue
@@ -229,28 +221,15 @@ def parse_pdf(path: Path) -> dict[str, Any]:
             # Font size lớn nhất trong block
             # -------------------------------------------------
 
-            font_size = max(
-                float(span.get("size", 0))
-                for span in spans
-            )
+            font_size = max(float(span.get("size", 0)) for span in spans)
 
             # -------------------------------------------------
             # Kiểm tra bold
             # -------------------------------------------------
 
-            is_bold = any(
-                "bold"
-                in str(
-                    span.get("font", "")
-                ).lower()
-                for span in spans
-            )
+            is_bold = any("bold" in str(span.get("font", "")).lower() for span in spans)
             is_italic = any(
-                "italic"
-                in str(
-                    span.get("font", "")
-                ).lower()
-                for span in spans
+                "italic" in str(span.get("font", "")).lower() for span in spans
             )
             if is_bold and is_italic:
                 style = "bold_italic"
@@ -261,13 +240,15 @@ def parse_pdf(path: Path) -> dict[str, Any]:
             else:
                 style = "normal"
 
-            all_blocks.append({
-                "page": page_number,
-                "text": text,
-                "font_size": font_size,
-                "style": style,
-                "bbox": block.get("bbox"),
-            })
+            all_blocks.append(
+                {
+                    "page": page_number,
+                    "text": text,
+                    "font_size": font_size,
+                    "style": style,
+                    "bbox": block.get("bbox"),
+                }
+            )
 
     # =========================================================
     # STEP 2
@@ -289,9 +270,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
     # 24 -> title
     # =========================================================
 
-    font_hierarchy = build_font_hierarchy(
-        all_blocks
-    )
+    font_hierarchy = build_font_hierarchy(all_blocks)
 
     # =========================================================
     # STEP 4
@@ -310,10 +289,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
 
     for block in all_blocks:
 
-        key = (
-            round(block["font_size"], 1),
-            block["style"]
-        )
+        key = (round(block["font_size"], 1), block["style"])
 
         rule = font_hierarchy.get(key)
 
@@ -328,12 +304,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
 
         if node_type == "title":
 
-            new_node = node(
-                "title",
-                2,
-                block["text"],
-                page=block["page"]
-            )
+            new_node = node("title", 2, block["text"], page=block["page"])
 
             nodes.append(new_node)
 
@@ -345,12 +316,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
 
         if node_type == "heading":
 
-            new_node = node(
-                "heading",
-                rule["level"],
-                block["text"],
-                page=block["page"]
-            )
+            new_node = node("heading", rule["level"], block["text"], page=block["page"])
 
             nodes.append(new_node)
 
@@ -364,12 +330,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
 
             # Paragraph level sẽ được xác định
             # khi biết parent heading.
-            new_node = node(
-                "paragraph",
-                None,
-                block["text"],
-                page=block["page"]
-            )
+            new_node = node("paragraph", None, block["text"], page=block["page"])
 
             nodes.append(new_node)
 
@@ -404,13 +365,9 @@ def parse_pdf(path: Path) -> dict[str, Any]:
 
             parent = stack[-1]
 
-            current_node["level"] = (
-                parent["level"] + 1
-            )
+            current_node["level"] = parent["level"] + 1
 
-            parent["child"].append(
-                current_node
-            )
+            parent["child"].append(current_node)
 
             continue
 
@@ -436,11 +393,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
         # => parent = heading level 3
         # -----------------------------------------------------
 
-        while (
-            stack
-            and
-            stack[-1]["level"] >= current_level
-        ):
+        while stack and stack[-1]["level"] >= current_level:
             stack.pop()
 
         # -----------------------------------------------------
@@ -456,18 +409,14 @@ def parse_pdf(path: Path) -> dict[str, Any]:
         # Add node vào parent
         # -----------------------------------------------------
 
-        parent["child"].append(
-            current_node
-        )
+        parent["child"].append(current_node)
 
         # -----------------------------------------------------
         # Node hiện tại trở thành parent
         # cho các node tiếp theo
         # -----------------------------------------------------
 
-        stack.append(
-            current_node
-        )
+        stack.append(current_node)
 
     return root
 
@@ -489,7 +438,6 @@ def build_font_hierarchy(all_blocks):
     if not all_blocks:
         return {}
 
-
     # =========================================================
     # 1. Count (font_size, style)
     # =========================================================
@@ -498,19 +446,13 @@ def build_font_hierarchy(all_blocks):
 
     for block in all_blocks:
 
-        size = round(
-            block["font_size"],
-            1
-        )
+        size = round(block["font_size"], 1)
 
         style = block["style"]
 
         key = (size, style)
 
-        style_counts[key] = (
-            style_counts.get(key, 0) + 1
-        )
-
+        style_counts[key] = style_counts.get(key, 0) + 1
 
     # =========================================================
     # 2. Find paragraph style
@@ -519,24 +461,13 @@ def build_font_hierarchy(all_blocks):
     # is our paragraph candidate.
     # =========================================================
 
-    paragraph_key = max(
-        style_counts,
-        key=style_counts.get
-    )
+    paragraph_key = max(style_counts, key=style_counts.get)
 
-
-    paragraph_size, paragraph_style = (
-        paragraph_key
-    )
-
+    paragraph_size, paragraph_style = paragraph_key
 
     hierarchy = {}
 
-
-    hierarchy[paragraph_key] = {
-        "type": "paragraph"
-    }
-
+    hierarchy[paragraph_key] = {"type": "paragraph"}
 
     # =========================================================
     # 3. Find candidate heading/title styles
@@ -554,85 +485,46 @@ def build_font_hierarchy(all_blocks):
             candidates.append(key)
             continue
 
-
         # Same font size but styled
         if size == paragraph_size:
 
-            if style in {
-                "bold",
-                "italic",
-                "bold_italic"
-            }:
+            if style in {"bold", "italic", "bold_italic"}:
                 candidates.append(key)
-
 
     if not candidates:
         return hierarchy
-
 
     # =========================================================
     # 4. Largest font size = title
     # =========================================================
 
-    largest_size = max(
-        size
-        for size, style in candidates
-    )
+    largest_size = max(size for size, style in candidates)
 
-
-    title_candidates = [
-        key
-        for key in candidates
-        if key[0] == largest_size
-    ]
-
+    title_candidates = [key for key in candidates if key[0] == largest_size]
 
     # Nếu cùng largest size có nhiều style,
     # ưu tiên bold.
     title_key = sorted(
-        title_candidates,
-        key=lambda key: (
-            key[1] != "bold",
-            key[1] != "bold_italic"
-        )
+        title_candidates, key=lambda key: (key[1] != "bold", key[1] != "bold_italic")
     )[0]
 
-
-    hierarchy[title_key] = {
-        "type": "title"
-    }
-
+    hierarchy[title_key] = {"type": "title"}
 
     # =========================================================
     # 5. Remaining candidates = headings
     # =========================================================
 
-    heading_candidates = [
-        key
-        for key in candidates
-        if key != title_key
-    ]
-
+    heading_candidates = [key for key in candidates if key != title_key]
 
     # Larger font size = higher heading
-    heading_candidates.sort(
-        key=lambda key: key[0],
-        reverse=True
-    )
+    heading_candidates.sort(key=lambda key: key[0], reverse=True)
 
+    for index, key in enumerate(heading_candidates, start=3):
 
-    for index, key in enumerate(
-        heading_candidates,
-        start=3
-    ):
-
-        hierarchy[key] = {
-            "type": "heading",
-            "level": index
-        }
-
+        hierarchy[key] = {"type": "heading", "level": index}
 
     return hierarchy
+
 
 def is_pdf_title(text: str, size: float, base_size: float) -> bool:
     return len(text) <= 140 and size >= base_size * 1.8

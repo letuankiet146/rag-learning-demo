@@ -1,14 +1,20 @@
+
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .db import get_document, init_db, insert_document, list_documents
 from .parsers import parse_document
+from .embedding import index_document
+from .chat import chat
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 STATIC_DIR = BASE_DIR / "static"
@@ -19,6 +25,18 @@ app = FastAPI(title="Document Parser MVP")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+class ChatRequest(BaseModel):
+    question: str
+    top_k: int = 5
+    
+@app.post("/api/chat")
+def chat_api(request: ChatRequest):
+    result = chat(
+        question=request.question,
+        limit=request.top_k,
+    )
+
+    return result
 @app.on_event("startup")
 def startup():
     init_db()
@@ -68,11 +86,18 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
         created_at=created_at,
     )
 
+    qdrant_result = index_document(
+        document_id=document_id,
+        document_name=safe_name,
+        normalized_document=normalized,
+    )
+
     return {
         "id": document_id,
         "filename": safe_name,
         "original_url": original_url,
         "normalized": normalized,
+        "qdrant": qdrant_result,
     }
 
 
