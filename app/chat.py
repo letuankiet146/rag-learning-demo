@@ -1,27 +1,29 @@
 import os
-from google import genai
+from openai import OpenAI
 from qdrant_client import QdrantClient
 
 COLLECTION_NAME = "documents"
 
-# EMBEDDING_MODEL = "text-embedding-3-small"
-# CHAT_MODEL = "gpt-5-mini"
-EMBEDDING_MODEL = "gemini-embedding-001"
-CHAT_MODEL = "gemini-3.8-flash"
+EMBEDDING_MODEL = "text-embedding-3-small"
+CHAT_MODEL = "gpt-5-mini"
 
-google_client = genai.Client(
-    api_key=os.getenv("GOOGLE_API_KEY")
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
 )
 qdrant_client = QdrantClient("http://localhost:6333")
 
 
 def create_query_embedding(question: str):
-    response = google_client.models.embed_content(
+    response = openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
-        contents=question,
+        input=question,
     )
+    # response = google_client.models.embed_content(
+    #     model=EMBEDDING_MODEL,
+    #     contents=question,
+    # )
 
-    return  response.embeddings[0].values
+    return  response.data[0].embedding
 
 
 def search_qdrant(question: str, limit: int = 5):
@@ -74,12 +76,12 @@ User question:
 {question}
 """
 
-    response = google_client.models.generate_content(
+    response = openai_client.responses.create(
         model=CHAT_MODEL,
-        contents=prompt,
+        input=prompt,
     )
 
-    return response.text
+    return response.output_text
 
 
 def chat(question: str, limit: int = 5):

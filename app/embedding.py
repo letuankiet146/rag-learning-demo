@@ -2,8 +2,7 @@ from typing import Any
 from uuid import uuid4
 
 import os
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from qdrant_client import QdrantClient, models
 from .semantic_chunking import (
     split_sentences,
@@ -16,19 +15,20 @@ from .semantic_chunking import (
 # CONFIG
 # =========================================================
 
-# EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_MODEL = "text-embedding-3-small"
 
 COLLECTION_NAME = "documents"
 
-VECTOR_SIZE = 3072
+VECTOR_SIZE = 1536
 
 
 # =========================================================
 # CLIENTS
 # =========================================================
 
-google_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 qdrant_client = QdrantClient(url="http://localhost:6333")
 
@@ -70,14 +70,24 @@ def create_embedding(text: str) -> list[float]:
     """
     Convert text into embedding vector.
     """
+    vectors = create_embeddings([text])
 
-    response = google_client.models.embed_content(
+    return vectors[0]
+
+def create_embeddings(texts: list[str]):
+    # wait_for_rate_limit()
+    if not texts:
+        return []
+    response = openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
-        contents=text,
+        input=texts,
+        dimensions=VECTOR_SIZE,
     )
 
-    return response.embeddings[0].values
-
+    return [
+        embedding.embedding
+        for embedding in response.data
+    ]
 
 # =========================================================
 # BUILD EMBEDDING TEXT
@@ -238,7 +248,9 @@ def flatten_document(
 
     return results
 
-
+def batch_items(items, batch_size):
+    for i in range(0, len(items), batch_size):
+        yield items[i:i + batch_size]
 # =========================================================
 # SAVE DOCUMENT TO QDRANT
 # =========================================================
@@ -273,36 +285,37 @@ def index_document(
 
     points = []
 
-    for chunk in chunks:
+    BATCH_SIZE = 20
 
-        vector = create_embedding(chunk["embedding_text"])
+    for batch in batch_items(chunks, BATCH_SIZE):
 
-        # -----------------------------------------------------
-        # Payload
-        # -----------------------------------------------------
+        texts = [
+            chunk["embedding_text"]
+            for chunk in batch
+        ]
 
-        payload = {
-            "document_id": document_id,
-            "document_name": document_name,
-            "type": chunk["type"],
-            "text": chunk["text"],
-            "embedding_text": chunk["embedding_text"],
-            "level": chunk["level"],
-            "page": chunk["page"],
-            "parent_context": chunk["parent_context"],
-        }
+        vectors = create_embeddings(texts)
 
-        # -----------------------------------------------------
-        # Qdrant point
-        # -----------------------------------------------------
+        for chunk, vector in zip(batch, vectors):
 
-        point = models.PointStruct(
-            id=str(uuid4()),
-            vector=vector,
-            payload=payload,
-        )
+            payload = {
+                "document_id": document_id,
+                "document_name": document_name,
+                "type": chunk["type"],
+                "text": chunk["text"],
+                "embedding_text": chunk["embedding_text"],
+                "level": chunk["level"],
+                "page": chunk["page"],
+                "parent_context": chunk["parent_context"],
+            }
 
-        points.append(point)
+            point = models.PointStruct(
+                id=str(uuid4()),
+                vector=vector,
+                payload=payload,
+            )
+
+            points.append(point)
 
     # ---------------------------------------------------------
     # 3. Upload points
@@ -319,21 +332,21 @@ def index_document(
     }
 
 
-def embed_sentences(sentences):
+def embed_sentences(sentences: list[str]):
 
     if not sentences:
         return []
 
-    response = google_client.models.embed_content(
+    response = openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
-        contents=sentences,
-        config= types.EmbedContentConfig(
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=VECTOR_SIZE,
-        ),
+        input=sentences,
+        dimensions=VECTOR_SIZE,
     )
 
-    return [embedding.values for embedding in response.embeddings]
+    return [
+        embedding.embedding
+        for embedding in response.data
+    ]
 
 
 def embed_chunk(
@@ -351,17 +364,15 @@ Content:
 {chunk_text}
 """.strip()
 
-    response = google_client.models.embed_content(
+    response = openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
-        contents=embedding_text,
-        config=types.EmbedContentConfig(
-            output_dimensionality=VECTOR_SIZE,
-        ),
+        input=embedding_text,
+        dimensions=VECTOR_SIZE,
     )
 
     return (
         embedding_text,
-        response.embeddings[0].values,
+        response.data[0].embedding,
     )
 
 

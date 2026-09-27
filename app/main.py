@@ -86,6 +86,7 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
         created_at=created_at,
     )
 
+    # qdrant_result = False
     qdrant_result = index_document(
         document_id=document_id,
         document_name=safe_name,

@@ -1,0 +1,111 @@
+{
+  "info": {
+    "_postman_id": "7b8f4c5d-7f9c-4b2b-9d4e-qdrant-rag-demo-v2",
+    "name": "Qdrant - RAG API",
+    "description": "Qdrant REST API collection for local Qdrant.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "qdrant_url",
+      "value": "http://localhost:6333",
+      "type": "string"
+    },
+    {
+      "key": "collection_name",
+      "value": "documents",
+      "type": "string"
+    },
+    {
+      "key": "point_id",
+      "value": "REPLACE_WITH_POINT_ID",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - List Collections",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{qdrant_url}}/collections"
+      }
+    },
+    {
+      "name": "02 - Get Collection Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{qdrant_url}}/collections/{{collection_name}}"
+      }
+    },
+    {
+      "name": "03 - Scroll Points",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"limit\": 10,\n  \"with_payload\": true,\n  \"with_vector\": false\n}"
+        },
+        "url": "{{qdrant_url}}/collections/{{collection_name}}/points/scroll"
+      }
+    },
+    {
+      "name": "04 - Get Point By ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{qdrant_url}}/collections/{{collection_name}}/points/{{point_id}}"
+      }
+    },
+    {
+      "name": "05 - Query By Vector (Semantic Search)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": [\n    \"REPLACE_WITH_FULL_VECTOR\"\n  ],\n  \"limit\": 5,\n  \"with_payload\": true,\n  \"with_vector\": false\n}"
+        },
+        "url": "{{qdrant_url}}/collections/{{collection_name}}/points/query"
+      }
+    },
+    {
+      "name": "06 - Query By Vector + Filter",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": [\n    \"REPLACE_WITH_FULL_VECTOR\"\n  ],\n  \"limit\": 5,\n  \"with_payload\": true,\n  \"with_vector\": false,\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"document_name\",\n        \"match\": {\n          \"value\": \"iphone17_warranty.pdf\"\n        }\n      }\n    ]\n  }\n}"
+        },
+        "url": "{{qdrant_url}}/collections/{{collection_name}}/points/query"
+      }
+    },
+    {
+      "name": "07 - Delete Collection (DANGER)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{qdrant_url}}/collections/{{collection_name}}",
+        "description": "WARNING: permanently deletes the collection and all points inside it."
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 import re
 
-import fitz
+import pymupdf
 from docx import Document as DocxDocument
 
 
@@ -173,7 +173,7 @@ def is_txt_heading(text: str) -> bool:
 
 # ---------------- PDF ----------------
 def parse_pdf(path: Path) -> dict[str, Any]:
-    pdf = fitz.open(path)
+    pdf = pymupdf.open(path)
 
     root = node("document", 1, path.name)
 
