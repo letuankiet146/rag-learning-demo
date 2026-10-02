@@ -9,8 +9,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .db import get_document, init_db, insert_document, list_documents
-from .parsers import parse_document
+from .db import get_document, init_db, list_documents
+from .parsers import llma_parsing
 from .embedding import index_document
 from .chat import chat
 
@@ -68,36 +68,25 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
             output.write(chunk)
 
     try:
-        normalized = parse_document(stored_path)
+        document_list = llma_parsing(stored_path)
     except Exception as exc:
         stored_path.unlink(missing_ok=True)
         raise HTTPException(422, f"Could not parse document: {exc}") from exc
 
     original_url = str(request.base_url).rstrip("/") + f"/api/documents/{document_id}/file"
-    created_at = datetime.now(timezone.utc).isoformat()
-
-    insert_document(
-        document_id=document_id,
-        filename=safe_name,
-        content_type=file.content_type or "application/octet-stream",
-        original_path=str(stored_path),
-        original_url=original_url,
-        normalized=normalized,
-        created_at=created_at,
-    )
-
+    
     # qdrant_result = False
     qdrant_result = index_document(
         document_id=document_id,
         document_name=safe_name,
-        normalized_document=normalized,
+        documents=document_list,
     )
 
     return {
         "id": document_id,
         "filename": safe_name,
         "original_url": original_url,
-        "normalized": normalized,
+        "documents": document_list,
         "qdrant": qdrant_result,
     }
 

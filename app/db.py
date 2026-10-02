@@ -30,37 +30,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
-def insert_document(
-    document_id: str,
-    filename: str,
-    content_type: str,
-    original_path: str,
-    original_url: str,
-    normalized: dict[str, Any],
-    created_at: str,
-):
-    conn = get_connection()
-    conn.execute(
-        '''
-        INSERT INTO documents
-        (id, filename, content_type, original_path, original_url, normalized_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''',
-        (
-            document_id,
-            filename,
-            content_type,
-            original_path,
-            original_url,
-            json.dumps(normalized, ensure_ascii=False),
-            created_at,
-        ),
-    )
-    conn.commit()
-    conn.close()
-
-
 def list_documents():
     conn = get_connection()
     rows = conn.execute(
